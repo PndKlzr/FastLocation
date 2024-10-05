@@ -3,7 +3,25 @@ import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import 'package:map_launcher/map_launcher.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/services.dart'; // Para usar TextInputFormatter
 import 'package:fastlocation/src/history/history_page.dart';
+
+// Classe para formatar o CEP
+class CepInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    String formattedCep = newValue.text.replaceAll(RegExp(r'\D'), ''); // Remove tudo que não é número
+
+    if (formattedCep.length > 5) {
+      formattedCep = '${formattedCep.substring(0, 5)}-${formattedCep.substring(5, formattedCep.length)}';
+    }
+
+    return TextEditingValue(
+      text: formattedCep,
+      selection: TextSelection.collapsed(offset: formattedCep.length),
+    );
+  }
+}
 
 class HomePage extends StatefulWidget {
   @override
@@ -35,7 +53,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _searchCep() async {
-    final cep = _cepController.text.trim();
+    final cep = _cepController.text.trim().replaceAll('-', ''); // Remove o hífen para a validação
 
     if (cep.isEmpty || cep.length != 8 || !RegExp(r'^[0-9]+$').hasMatch(cep)) {
       setState(() {
@@ -83,11 +101,21 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // Função para limpar o histórico
+  void _clearHistory() async {
+    var box = Hive.box('cep_history');
+    await box.clear(); // Limpa todos os registros da caixa
+    setState(() {
+      _result = 'Histórico limpo.';
+      _address = null; // Limpa o endereço mostrado
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Fast Location'),
+        title: Center(child: Text('Fast Location')), // Título centralizado
         backgroundColor: Color(0xFF4CAF50), // Cor do AppBar
       ),
       body: Padding(
@@ -106,6 +134,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               keyboardType: TextInputType.number,
+              inputFormatters: [CepInputFormatter()], // Formatter para o CEP
             ),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -178,6 +207,17 @@ class _HomePageState extends State<HomePage> {
               child: Text('Ver Histórico'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF4CAF50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30), // Bordas arredondadas
+                ),
+              ),
+            ),
+            SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: _clearHistory, // Função para limpar histórico
+              child: Text('Limpar Histórico'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, // Cor do botão de limpar
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30), // Bordas arredondadas
                 ),
